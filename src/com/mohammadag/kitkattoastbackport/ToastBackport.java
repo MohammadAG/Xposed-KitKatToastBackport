@@ -1,8 +1,9 @@
 package com.mohammadag.kitkattoastbackport;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
-import android.content.res.XModuleResources;
 import android.content.res.XResources;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
@@ -15,15 +16,16 @@ public class ToastBackport implements IXposedHookZygoteInit {
 	@SuppressLint("NewApi")
 	@Override
 	public void initZygote(StartupParam startupParam) throws Throwable {
-		XModuleResources modRes = XModuleResources.createInstance(startupParam.modulePath, null);
-		final Drawable backgroundDrawable = modRes.getDrawable(R.drawable.toast_frame_holo);
-		final Typeface typeFace = Typeface.createFromAsset(modRes.getAssets(), "RobotoCondensed-Regular.ttf");
-
 		XC_LayoutInflated hook = new XC_LayoutInflated() {
 			@SuppressWarnings("deprecation")
 			@Override
 			public void handleLayoutInflated(LayoutInflatedParam liparam) throws Throwable {
 				TextView view = (TextView) liparam.view.findViewById(android.R.id.message);
+				Resources res = getResources(view.getContext());
+
+				Typeface typeFace = Typeface.createFromAsset(res.getAssets(), "RobotoCondensed-Regular.ttf");
+				Drawable backgroundDrawable = res.getDrawable(R.drawable.toast_frame_holo);
+
 				view.setTypeface(typeFace);
 
 				LinearLayout layout = (LinearLayout) liparam.view;
@@ -38,10 +40,17 @@ public class ToastBackport implements IXposedHookZygoteInit {
 		XResources.hookSystemWideLayout("android", "layout", "transient_notification", hook);
 		try {
 			XResources.hookSystemWideLayout("android", "layout", "tw_transient_notification", hook);
-		} catch (Resources.NotFoundException e) {
+		} catch (Throwable t) { }
+	}
 
-		} catch (Throwable t) {
-
+	/* Get resources for our own package */
+	public static Resources getResources(Context context) {
+		try {
+			return context.getPackageManager().getResourcesForApplication("com.mohammadag.kitkattoastbackport");
+		} catch (NameNotFoundException e) {
+			e.printStackTrace();
 		}
+
+		return null;
 	}
 }
